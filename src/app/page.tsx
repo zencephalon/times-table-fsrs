@@ -329,6 +329,8 @@ export default function Home() {
     const userCorrectionNum = parseInt(correctionAnswer, 10);
 
     if (userCorrectionNum === correctAnswer) {
+      // Play celebration sound for correct correction
+      playCelebrationSound();
       setNeedsCorrection(false);
       setCorrectionAnswer("");
       // Allow proceeding to next card
