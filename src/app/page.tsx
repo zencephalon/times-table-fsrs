@@ -5,6 +5,7 @@ import { FSRS, Rating } from "ts-fsrs";
 import ProgressDashboard from "@/components/ProgressDashboard";
 import Settings from "@/components/Settings";
 import StatisticsChart from "@/components/StatisticsChart";
+import DeckSelector from "@/components/DeckSelector";
 import {
   calculateGrade,
   createResponseRecord,
@@ -57,6 +58,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [deckSelectionComplete, setDeckSelectionComplete] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const correctionInputRef = useRef<HTMLInputElement>(null);
@@ -134,20 +136,71 @@ export default function Home() {
     // }
   }, []);
 
+  const handleDeckToggle = useCallback(
+    (deckId: DeckType, enabled: boolean) => {
+      if (!settings) return;
+
+      const newEnabledDecks = enabled
+        ? [...settings.enabledDecks, deckId]
+        : settings.enabledDecks.filter((id) => id !== deckId);
+
+      const newSettings = {
+        ...settings,
+        enabledDecks: newEnabledDecks,
+      };
+
+      setSettings(newSettings);
+      saveSettings(newSettings);
+
+      // If enabling a deck, generate cards for it if they don't exist
+      if (enabled) {
+        const deckCards = cards.filter((card) => card.deckId === deckId);
+        if (deckCards.length === 0) {
+          // Generate new cards for this deck
+          const newDeckCards = deckRegistry
+            .getDeck(deckId)
+            .generateCards();
+          const updatedCards = [...cards, ...newDeckCards];
+          setCards(updatedCards);
+          saveCards(updatedCards);
+        }
+      }
+      // If disabling, we keep the cards but just don't show them
+      // This preserves FSRS progress
+    },
+    [settings, cards],
+  );
+
+  const handleDeckSelectionComplete = useCallback(() => {
+    setDeckSelectionComplete(true);
+  }, []);
+
   const startSession = useCallback(() => {
     setSessionStarted(true);
-    if (cards.length > 0) {
-      selectNextCard(cards);
+    // Filter cards by enabled decks
+    if (settings && cards.length > 0) {
+      const filteredCards = deckRegistry.filterCardsByDecks(
+        cards,
+        settings.enabledDecks,
+      );
+      selectNextCard(filteredCards);
     }
-  }, [cards, selectNextCard]);
+  }, [cards, settings, selectNextCard]);
 
   useEffect(() => {
     const handleGlobalKeyPress = (e: KeyboardEvent) => {
       // Don't handle shortcuts when modals are open
       if (showProgressDashboard || showStatistics || showSettings) return;
 
+      // Handle deck selection completion
+      if (!deckSelectionComplete && e.key === "Enter" && settings && settings.enabledDecks.length > 0) {
+        e.preventDefault();
+        handleDeckSelectionComplete();
+        return;
+      }
+
       // Handle session start
-      if (!sessionStarted && e.key === "Enter") {
+      if (deckSelectionComplete && !sessionStarted && e.key === "Enter") {
         e.preventDefault();
         startSession();
         return;
@@ -196,6 +249,9 @@ export default function Home() {
     sessionStarted,
     startSession,
     needsCorrection,
+    deckSelectionComplete,
+    handleDeckSelectionComplete,
+    settings,
   ]);
 
   const handleSubmitAnswer = async () => {
@@ -347,8 +403,22 @@ export default function Home() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Only allow numeric input
-    if (value === "" || /^\d+$/.test(value)) {
+
+    if (!currentCard) {
+      setUserAnswer(value);
+      return;
+    }
+
+    // Get deck-specific input validation
+    const deck = deckRegistry.getDeckForCard(currentCard);
+
+    if (deck.inputType === "number") {
+      // Only allow numeric input
+      if (value === "" || /^\d+$/.test(value)) {
+        setUserAnswer(value);
+      }
+    } else {
+      // Allow any text input for text-based decks
       setUserAnswer(value);
     }
   };
@@ -357,8 +427,22 @@ export default function Home() {
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const value = e.target.value;
-    // Only allow numeric input
-    if (value === "" || /^\d+$/.test(value)) {
+
+    if (!currentCard) {
+      setCorrectionAnswer(value);
+      return;
+    }
+
+    // Get deck-specific input validation
+    const deck = deckRegistry.getDeckForCard(currentCard);
+
+    if (deck.inputType === "number") {
+      // Only allow numeric input
+      if (value === "" || /^\d+$/.test(value)) {
+        setCorrectionAnswer(value);
+      }
+    } else {
+      // Allow any text input for text-based decks
       setCorrectionAnswer(value);
     }
   };
@@ -499,8 +583,16 @@ export default function Home() {
               </div>
             )}
 
-          {/* Session Start Screen */}
-          {!sessionStarted ? (
+          {/* Deck Selection Screen */}
+          {!deckSelectionComplete && settings ? (
+            <DeckSelector
+              cards={cards}
+              enabledDecks={settings.enabledDecks}
+              onDeckToggle={handleDeckToggle}
+              onStartPractice={handleDeckSelectionComplete}
+            />
+          ) : !sessionStarted ? (
+            /* Session Start Screen */
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 max-w-2xl mx-auto">
               <div className="text-center">
                 <div className="mb-8">
@@ -512,7 +604,7 @@ export default function Home() {
                     <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm font-mono">
                       Enter
                     </kbd>{" "}
-                    to start your multiplication practice session
+                    to start your practice session
                   </div>
                 </div>
 
@@ -531,6 +623,16 @@ export default function Home() {
                       {cardStats.learning} learning
                     </div>
                   )}
+                </div>
+
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setDeckSelectionComplete(false)}
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    ← Change deck selection
+                  </button>
                 </div>
               </div>
             </div>
@@ -563,13 +665,38 @@ export default function Home() {
                     <div className="mb-6">
                       <input
                         ref={inputRef}
-                        type="text"
+                        type={
+                          currentCard &&
+                          deckRegistry.getDeckForCard(currentCard).inputType ===
+                            "number"
+                            ? "text"
+                            : "text"
+                        }
+                        inputMode={
+                          currentCard &&
+                          deckRegistry.getDeckForCard(currentCard).inputType ===
+                            "number"
+                            ? "numeric"
+                            : "text"
+                        }
                         value={userAnswer}
                         onChange={handleInputChange}
                         onKeyPress={handleKeyPress}
                         className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center w-48 sm:w-56 lg:w-64 p-3 sm:p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
-                        placeholder="Your answer"
-                        maxLength={5}
+                        placeholder={
+                          currentCard &&
+                          deckRegistry.getDeckForCard(currentCard).inputType ===
+                            "number"
+                            ? "Number"
+                            : "Your answer"
+                        }
+                        maxLength={
+                          currentCard &&
+                          deckRegistry.getDeckForCard(currentCard).inputType ===
+                            "number"
+                            ? 5
+                            : 20
+                        }
                       />
                       <div className="mt-4 flex justify-center">
                         <button
@@ -630,12 +757,25 @@ export default function Home() {
                           <input
                             ref={correctionInputRef}
                             type="text"
+                            inputMode={
+                              currentCard &&
+                              deckRegistry.getDeckForCard(currentCard).inputType ===
+                                "number"
+                                ? "numeric"
+                                : "text"
+                            }
                             value={correctionAnswer}
                             onChange={handleCorrectionInputChange}
                             onKeyPress={handleCorrectionKeyPress}
                             className="text-xl font-bold text-center w-32 p-3 border-2 border-orange-300 dark:border-orange-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-orange-500 focus:outline-none"
                             placeholder="Answer"
-                            maxLength={5}
+                            maxLength={
+                              currentCard &&
+                              deckRegistry.getDeckForCard(currentCard).inputType ===
+                                "number"
+                                ? 5
+                                : 20
+                            }
                           />
                           <div className="mt-3">
                             <button
