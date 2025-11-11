@@ -10,7 +10,8 @@
       "Bash(npx biome check:*)",
       "WebFetch(domain:www.npmjs.com)",
       "Bash(mkdir:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

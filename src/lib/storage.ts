@@ -1,7 +1,13 @@
 import { deckRegistry } from "./decks";
 import { DeckType } from "./deck-types";
 import type { MultiplicationContent } from "./decks/multiplication";
-import type { AppSettings, Card, ResponseRecord, SessionData } from "./types";
+import type {
+  AppSettings,
+  Card,
+  ResponseRecord,
+  SessionData,
+  SpeedStats,
+} from "./types";
 
 const STORAGE_KEYS = {
   CARDS: "multiplicationCards",
@@ -19,11 +25,7 @@ function createDefaultSessionData(): SessionData {
   const now = new Date();
   return {
     responses: [],
-    speedStats: {
-      responses: [],
-      percentiles: { p25: 0, p50: 0, p75: 0, p90: 0 },
-      isWarmedUp: false,
-    },
+    speedStats: {}, // Empty object - stats created per deck as needed
     lastReviewDate: now,
     sessionStartTime: now,
     totalSessionTime: 0,
@@ -159,6 +161,7 @@ export function loadSessionData(): SessionData {
     const stored = localStorage.getItem(STORAGE_KEYS.SESSION);
     if (stored) {
       const data = JSON.parse(stored) as SessionData;
+
       // Parse dates that were serialized as strings
       data.lastReviewDate = new Date(data.lastReviewDate);
       data.sessionStartTime = new Date(
@@ -169,6 +172,22 @@ export function loadSessionData(): SessionData {
         ...r,
         timestamp: new Date(r.timestamp),
       }));
+
+      // Migrate old speedStats format (single object) to new format (per-deck)
+      if (data.speedStats && !isPerDeckSpeedStats(data.speedStats)) {
+        console.log("Migrating speedStats to per-deck format");
+        const oldStats = data.speedStats as unknown as SpeedStats;
+        data.speedStats = {
+          [DeckType.MULTIPLICATION]: oldStats,
+        };
+        saveSessionData(data);
+      }
+
+      // Ensure speedStats is an object
+      if (!data.speedStats) {
+        data.speedStats = {};
+      }
+
       return data;
     }
   } catch (error) {
@@ -178,6 +197,23 @@ export function loadSessionData(): SessionData {
   const defaultData = createDefaultSessionData();
   saveSessionData(defaultData);
   return defaultData;
+}
+
+/**
+ * Type guard to check if speedStats is in the new per-deck format
+ */
+function isPerDeckSpeedStats(
+  speedStats: unknown,
+): speedStats is Record<string, SpeedStats> {
+  if (typeof speedStats !== "object" || speedStats === null) return false;
+
+  // Old format has 'responses' and 'percentiles' directly
+  if ("responses" in speedStats && "percentiles" in speedStats) {
+    return false;
+  }
+
+  // New format has deck IDs as keys
+  return true;
 }
 
 /**

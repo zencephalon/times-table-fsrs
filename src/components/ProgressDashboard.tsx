@@ -51,8 +51,8 @@ export default function ProgressDashboard({
         )
       : 0;
 
-  // Speed distribution (if warmed up)
-  const speedStats = sessionData.speedStats;
+  // Get all deck speed stats
+  const deckSpeedStats = sessionData.speedStats;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
@@ -170,46 +170,52 @@ export default function ProgressDashboard({
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Speed Performance
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-300">
-                    Average Response Time
+                    Overall Average
                   </span>
                   <span className="text-gray-900 dark:text-white font-medium">
                     {averageResponseTime}ms
                   </span>
                 </div>
 
-                {speedStats.isWarmedUp && (
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                      Speed Percentiles:
+                {/* Per-deck speed stats */}
+                {Object.entries(deckSpeedStats).map(([deckId, stats]) => (
+                  <div key={deckId} className="border-t border-gray-200 dark:border-gray-600 pt-3">
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      {deckId === "multiplication" ? "Multiplication" : deckId === "katakana" ? "Katakana" : deckId}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex justify-between">
-                        <span>Fast (25th):</span>
-                        <span>{Math.round(speedStats.percentiles.p25)}ms</span>
+                    {stats.isWarmedUp ? (
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex justify-between">
+                          <span>Fast (25th):</span>
+                          <span>{Math.round(stats.percentiles.p25)}ms</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Good (50th):</span>
+                          <span>{Math.round(stats.percentiles.p50)}ms</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Slow (75th):</span>
+                          <span>{Math.round(stats.percentiles.p75)}ms</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Very Slow (90th):</span>
+                          <span>{Math.round(stats.percentiles.p90)}ms</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Good (50th):</span>
-                        <span>{Math.round(speedStats.percentiles.p50)}ms</span>
+                    ) : (
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Warmup: {stats.responses.length}/50 responses
                       </div>
-                      <div className="flex justify-between">
-                        <span>Slow (75th):</span>
-                        <span>{Math.round(speedStats.percentiles.p75)}ms</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Very Slow (90th):</span>
-                        <span>{Math.round(speedStats.percentiles.p90)}ms</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
+                ))}
 
-                {!speedStats.isWarmedUp && (
+                {Object.keys(deckSpeedStats).length === 0 && (
                   <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Speed grading activates after{" "}
-                    {50 - sessionData.responses.length} more responses
+                    No speed data yet. Start practicing to see stats!
                   </div>
                 )}
               </div>

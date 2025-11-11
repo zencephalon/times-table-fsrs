@@ -26,6 +26,17 @@ function calculatePercentiles(times: number[]): {
 }
 
 /**
+ * Create default speed stats for a new deck
+ */
+export function createDefaultSpeedStats(): SpeedStats {
+  return {
+    responses: [],
+    percentiles: { p25: 0, p50: 0, p75: 0, p90: 0 },
+    isWarmedUp: false,
+  };
+}
+
+/**
  * Update speed statistics with a new response time
  */
 export function updateSpeedStats(

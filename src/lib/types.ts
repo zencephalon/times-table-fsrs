@@ -32,7 +32,7 @@ export interface SpeedStats {
 
 export interface SessionData {
   responses: ResponseRecord[];
-  speedStats: SpeedStats;
+  speedStats: Record<string, SpeedStats>; // Per-deck speed stats (DeckType as key)
   lastReviewDate: Date;
   sessionStartTime: Date;
   totalSessionTime: number; // milliseconds

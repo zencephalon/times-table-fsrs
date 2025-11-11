@@ -8,6 +8,7 @@ import StatisticsChart from "@/components/StatisticsChart";
 import DeckSelector from "@/components/DeckSelector";
 import {
   calculateGrade,
+  createDefaultSpeedStats,
   createResponseRecord,
   updateSpeedStats,
 } from "@/lib/grading";
@@ -270,15 +271,20 @@ export default function Home() {
       const answerCheck = deck.checkAnswer(currentCard, userAnswer);
       const isCorrect = answerCheck.isCorrect;
 
-      // Update speed statistics
-      const newSpeedStats = updateSpeedStats(
-        sessionData.speedStats,
+      // Get or create speed stats for this deck
+      const deckId = currentCard.deckId;
+      const currentDeckStats =
+        sessionData.speedStats[deckId] || createDefaultSpeedStats();
+
+      // Update speed statistics for this specific deck
+      const newDeckStats = updateSpeedStats(
+        currentDeckStats,
         responseTime,
         settings.warmupTarget,
       );
 
-      // Calculate FSRS rating based on accuracy and speed
-      const rating = calculateGrade(isCorrect, responseTime, newSpeedStats);
+      // Calculate FSRS rating based on accuracy and speed (using deck-specific stats)
+      const rating = calculateGrade(isCorrect, responseTime, newDeckStats);
 
       // Create response record
       const responseRecord = createResponseRecord(
@@ -318,10 +324,13 @@ export default function Home() {
           : card,
       );
 
-      // Update session data
+      // Update session data with new deck-specific stats
       const newSessionData: SessionData = {
         responses: [...sessionData.responses, responseRecord],
-        speedStats: newSpeedStats,
+        speedStats: {
+          ...sessionData.speedStats,
+          [deckId]: newDeckStats, // Update only this deck's stats
+        },
         lastReviewDate: now,
         sessionStartTime: sessionData.sessionStartTime,
         totalSessionTime: sessionData.totalSessionTime,
@@ -800,13 +809,18 @@ export default function Home() {
                       {feedback.responseTime && (
                         <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                           Response time: {feedback.responseTime}ms
-                          {feedback.rating && (
+                          {feedback.rating && currentCard && (
                             <span className="ml-2">
                               • Rating: {feedback.rating}
                               {sessionData &&
-                                !sessionData.speedStats.isWarmedUp && (
-                                  <span className="text-xs ml-1">(warmup)</span>
-                                )}
+                                (() => {
+                                  const deckStats =
+                                    sessionData.speedStats[currentCard.deckId] ||
+                                    createDefaultSpeedStats();
+                                  return !deckStats.isWarmedUp ? (
+                                    <span className="text-xs ml-1">(warmup)</span>
+                                  ) : null;
+                                })()}
                             </span>
                           )}
                         </div>
@@ -877,14 +891,19 @@ export default function Home() {
                         </div>
                       </div>
                     )}
-                    {sessionData && (
+                    {sessionData && currentCard && (
                       <div className="text-center space-y-1">
                         <div>
-                          {sessionData.speedStats.isWarmedUp
-                            ? `Warmed up (${sessionData.responses.length} responses)`
-                            : `Warmup: ${sessionData.responses.length}/${
-                                settings?.warmupTarget || 50
-                              }`}
+                          {(() => {
+                            const deckStats =
+                              sessionData.speedStats[currentCard.deckId] ||
+                              createDefaultSpeedStats();
+                            return deckStats.isWarmedUp
+                              ? `Warmed up for ${deckRegistry.getDeckForCard(currentCard).name} (${deckStats.responses.length} responses)`
+                              : `Warmup (${deckRegistry.getDeckForCard(currentCard).name}): ${deckStats.responses.length}/${
+                                  settings?.warmupTarget || 50
+                                }`;
+                          })()}
                         </div>
                         {sessionStartTime && (
                           <div className="text-xs">
