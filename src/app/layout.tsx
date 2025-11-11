@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Multiplication Table Practice",
-  description: "Learn multiplication tables using spaced repetition",
+  title: "Quick Kata",
+  description: "Master skills through spaced repetition practice",
 };
 
 export default function RootLayout({

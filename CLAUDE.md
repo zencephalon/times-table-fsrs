@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **fully implemented** Next.js 15 application for learning multiplication tables using spaced repetition (FSRS algorithm). The app helps users memorize multiplication problems (2-9 × 2-99) by presenting questions, timing responses, and scheduling reviews based on performance. All core features are complete and working.
+**Quick Kata** is a **fully implemented** Next.js 15 application for mastering skills through spaced repetition (FSRS algorithm). The app helps users memorize content through timed practice sessions, currently featuring multiplication tables (2-9 × 2-99) and Japanese Katakana. It presents questions, times responses, and schedules reviews based on performance. All core features are complete and working.
 
 ## Development Commands
 

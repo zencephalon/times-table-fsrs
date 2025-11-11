@@ -465,7 +465,7 @@ export default function Home() {
             Loading cards...
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            Initializing your multiplication practice session
+            Initializing your practice session
           </div>
         </div>
       </div>
@@ -477,10 +477,10 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            Multiplication Table Practice
+            Quick Kata
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Learn multiplication tables using spaced repetition
+            Master skills through spaced repetition practice
           </p>
 
           {/* Action Buttons */}

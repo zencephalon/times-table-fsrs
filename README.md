@@ -1,4 +1,17 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Quick Kata
+
+**Quick Kata** is a Next.js application for mastering skills through spaced repetition practice. Built with the FSRS algorithm, it helps you memorize content through timed practice sessions with intelligent scheduling.
+
+## Features
+
+- Multiple practice decks (Multiplication Tables, Japanese Katakana)
+- Precision timing with speed-based grading
+- FSRS (Free Spaced Repetition Scheduler) algorithm
+- Per-deck statistics and warmup tracking
+- Progress dashboard and performance analytics
+- No account required - all data stored locally
+- Keyboard shortcuts for efficient practice
+- Dark mode support
 
 ## Getting Started
 
