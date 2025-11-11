@@ -1,15 +1,15 @@
 import type { Card } from "ts-fsrs";
 
-export interface KatakanaCard {
+export interface MultiplicationCard {
   id: string;
-  character: string; // Katakana character (e.g., "ア")
-  romaji: string; // Correct romaji (e.g., "a")
+  multiplicand: number; // 2-9
+  multiplier: number; // 2-99
   fsrsCard: Card; // ts-fsrs Card object
 }
 
 export interface ResponseRecord {
   cardId: string;
-  answer: string;
+  answer: number;
   correct: boolean;
   responseTime: number; // milliseconds
   timestamp: Date;

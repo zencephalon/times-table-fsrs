@@ -19,22 +19,22 @@ import {
   saveSessionData,
   saveSettings,
 } from "@/lib/storage";
-import type { AppSettings, KatakanaCard, SessionData } from "@/lib/types";
+import type { AppSettings, MultiplicationCard, SessionData } from "@/lib/types";
 
 export default function Home() {
-  const [cards, setCards] = useState<KatakanaCard[]>([]);
+  const [cards, setCards] = useState<MultiplicationCard[]>([]);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [currentCard, setCurrentCard] = useState<KatakanaCard | null>(
+  const [currentCard, setCurrentCard] = useState<MultiplicationCard | null>(
     null,
   );
   const [userAnswer, setUserAnswer] = useState("");
   const [feedback, setFeedback] = useState<{
     show: boolean;
     correct: boolean;
-    correctAnswer?: string;
-    userAnswer?: string;
+    correctAnswer?: number;
+    userAnswer?: number;
     rating?: string;
     responseTime?: number;
   }>({ show: false, correct: false });
@@ -74,7 +74,7 @@ export default function Home() {
     }
   };
 
-  const selectNextCard = useCallback((cardList: KatakanaCard[]) => {
+  const selectNextCard = useCallback((cardList: MultiplicationCard[]) => {
     const nextCard = getNextCard(cardList);
     if (!nextCard) return;
 
@@ -203,9 +203,9 @@ export default function Home() {
 
     try {
       const responseTime = performance.now() - questionStartTime;
-      const userAnswerStr = userAnswer.trim();
-      const correctAnswer = currentCard.romaji;
-      const isCorrect = userAnswerStr.toLowerCase() === correctAnswer.toLowerCase();
+      const userAnswerNum = parseInt(userAnswer, 10);
+      const correctAnswer = currentCard.multiplicand * currentCard.multiplier;
+      const isCorrect = userAnswerNum === correctAnswer;
 
       // Update speed statistics
       const newSpeedStats = updateSpeedStats(
@@ -220,7 +220,7 @@ export default function Home() {
       // Create response record
       const responseRecord = createResponseRecord(
         currentCard.id,
-        userAnswerStr,
+        userAnswerNum,
         correctAnswer,
         responseTime,
       );
@@ -276,7 +276,7 @@ export default function Home() {
         show: true,
         correct: isCorrect,
         correctAnswer: correctAnswer,
-        userAnswer: userAnswerStr,
+        userAnswer: userAnswerNum,
         rating: ratingNames[rating as keyof typeof ratingNames],
         responseTime: Math.round(responseTime),
       });
@@ -325,10 +325,10 @@ export default function Home() {
   const handleCorrectionSubmit = () => {
     if (!currentCard || !needsCorrection) return;
 
-    const correctAnswer = currentCard.romaji;
-    const userCorrectionStr = correctionAnswer.trim();
+    const correctAnswer = currentCard.multiplicand * currentCard.multiplier;
+    const userCorrectionNum = parseInt(correctionAnswer, 10);
 
-    if (userCorrectionStr.toLowerCase() === correctAnswer.toLowerCase()) {
+    if (userCorrectionNum === correctAnswer) {
       // Play celebration sound for correct correction
       playCelebrationSound();
       setNeedsCorrection(false);
@@ -339,16 +339,20 @@ export default function Home() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    // Allow alphabetic input for romaji
-    setUserAnswer(value);
+    // Only allow numeric input
+    if (value === "" || /^\d+$/.test(value)) {
+      setUserAnswer(value);
+    }
   };
 
   const handleCorrectionInputChange = (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const value = e.target.value;
-    // Allow alphabetic input for romaji
-    setCorrectionAnswer(value);
+    // Only allow numeric input
+    if (value === "" || /^\d+$/.test(value)) {
+      setCorrectionAnswer(value);
+    }
   };
 
   if (!isLoaded) {
@@ -360,7 +364,7 @@ export default function Home() {
             Loading cards...
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            Initializing your katakana practice session
+            Initializing your multiplication practice session
           </div>
         </div>
       </div>
@@ -372,10 +376,10 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-            Katakana Practice
+            Multiplication Table Practice
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Learn Japanese Katakana using spaced repetition
+            Learn multiplication tables using spaced repetition
           </p>
 
           {/* Action Buttons */}
@@ -500,7 +504,7 @@ export default function Home() {
                     <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm font-mono">
                       Enter
                     </kbd>{" "}
-                    to start your katakana practice session
+                    to start your multiplication practice session
                   </div>
                 </div>
 
@@ -528,11 +532,13 @@ export default function Home() {
                 <div className="text-center">
                   {/* Question Display */}
                   <div className="mb-8">
-                    <div className="text-8xl sm:text-9xl font-bold text-gray-900 dark:text-white mb-6">
-                      {currentCard.character}
-                    </div>
-                    <div className="text-lg text-gray-600 dark:text-gray-400">
-                      What is the romaji?
+                    <div className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 font-mono">
+                      <div className="text-right">{currentCard.multiplier}</div>
+                      <div className="text-right">
+                        x {currentCard.multiplicand}
+                      </div>
+                      <div className="border-t-4 border-gray-400 dark:border-gray-500 my-2"></div>
+                      <div className="text-right">?</div>
                     </div>
                   </div>
 
@@ -546,8 +552,8 @@ export default function Home() {
                         onChange={handleInputChange}
                         onKeyPress={handleKeyPress}
                         className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center w-48 sm:w-56 lg:w-64 p-3 sm:p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
-                        placeholder="Type romaji"
-                        maxLength={10}
+                        placeholder="Your answer"
+                        maxLength={5}
                       />
                       <div className="mt-4 flex justify-center">
                         <button
