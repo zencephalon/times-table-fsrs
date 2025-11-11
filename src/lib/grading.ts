@@ -68,14 +68,14 @@ export function calculateGrade(
  */
 export function createResponseRecord(
   cardId: string,
-  userAnswer: number,
-  correctAnswer: number,
+  userAnswer: string,
+  correctAnswer: string,
   responseTime: number,
 ): ResponseRecord {
   return {
     cardId,
     answer: userAnswer,
-    correct: userAnswer === correctAnswer,
+    correct: userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim(),
     responseTime,
     timestamp: new Date(),
   };

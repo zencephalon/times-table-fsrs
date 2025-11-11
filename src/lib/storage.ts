@@ -1,8 +1,8 @@
-import { generateMultiplicationCards } from "./cards";
-import type { AppSettings, MultiplicationCard, SessionData } from "./types";
+import { generateKatakanaCards } from "./cards";
+import type { AppSettings, KatakanaCard, SessionData } from "./types";
 
 const STORAGE_KEYS = {
-  CARDS: "multiplicationCards",
+  CARDS: "katakanaCards",
   SESSION: "sessionData",
   SETTINGS: "appSettings",
 } as const;
@@ -37,17 +37,17 @@ function createDefaultSettings(): AppSettings {
 }
 
 /**
- * Load multiplication cards from localStorage or generate them if not found
+ * Load katakana cards from localStorage or generate them if not found
  */
-export function loadCards(): MultiplicationCard[] {
+export function loadCards(): KatakanaCard[] {
   if (typeof window === "undefined") return [];
 
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.CARDS);
     if (stored) {
-      const cards = JSON.parse(stored) as MultiplicationCard[];
+      const cards = JSON.parse(stored) as KatakanaCard[];
       // Verify we have the expected number of cards
-      if (cards.length === 784) {
+      if (cards.length === 46) {
         // Parse dates that were serialized as strings in FSRS cards
         return cards.map((card) => ({
           ...card,
@@ -66,15 +66,15 @@ export function loadCards(): MultiplicationCard[] {
   }
 
   // Generate new cards if loading failed or incomplete
-  const cards = generateMultiplicationCards();
+  const cards = generateKatakanaCards();
   saveCards(cards);
   return cards;
 }
 
 /**
- * Save multiplication cards to localStorage
+ * Save katakana cards to localStorage
  */
-export function saveCards(cards: MultiplicationCard[]): void {
+export function saveCards(cards: KatakanaCard[]): void {
   if (typeof window === "undefined") return;
 
   try {
@@ -178,7 +178,7 @@ export function clearAllData(): void {
 export interface ExportData {
   version: string;
   exportDate: string;
-  cards: MultiplicationCard[];
+  cards: KatakanaCard[];
   sessionData: SessionData;
   settings: AppSettings;
 }
@@ -218,7 +218,7 @@ function validateImportData(data: unknown): data is ExportData {
     return false;
 
   // Validate cards structure
-  if (typedData.cards.length !== 784) return false;
+  if (typedData.cards.length !== 46) return false;
   const sampleCard = (typedData.cards as unknown[])[0] as Record<
     string,
     unknown
@@ -226,7 +226,8 @@ function validateImportData(data: unknown): data is ExportData {
   if (
     !sampleCard?.id ||
     !sampleCard?.fsrsCard ||
-    typeof sampleCard.multiplicand !== "number"
+    typeof sampleCard.character !== "string" ||
+    typeof sampleCard.romaji !== "string"
   )
     return false;
 
@@ -304,7 +305,7 @@ export function downloadBackup(): void {
   const url = URL.createObjectURL(blob);
 
   const timestamp = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-  const filename = `times-table-fsrs-backup-${timestamp}.json`;
+  const filename = `katakana-fsrs-backup-${timestamp}.json`;
 
   const a = document.createElement("a");
   a.href = url;
