@@ -1,8 +1,8 @@
 import { getCardStats } from "@/lib/scheduler";
-import type { MultiplicationCard, SessionData } from "@/lib/types";
+import type { Card, SessionData } from "@/lib/types";
 
 interface ProgressDashboardProps {
-  cards: MultiplicationCard[];
+  cards: Card<unknown>[];
   sessionData: SessionData;
   isVisible: boolean;
   onClose: () => void;

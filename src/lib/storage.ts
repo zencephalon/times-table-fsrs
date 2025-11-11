@@ -1,11 +1,16 @@
-import { generateMultiplicationCards } from "./cards";
-import type { AppSettings, MultiplicationCard, SessionData } from "./types";
+import { deckRegistry } from "./decks";
+import { DeckType } from "./deck-types";
+import type { MultiplicationContent } from "./decks/multiplication";
+import type { AppSettings, Card, ResponseRecord, SessionData } from "./types";
 
 const STORAGE_KEYS = {
   CARDS: "multiplicationCards",
   SESSION: "sessionData",
   SETTINGS: "appSettings",
+  DATA_VERSION: "dataVersion",
 } as const;
+
+const CURRENT_DATA_VERSION = "2.0.0"; // Updated for deck system
 
 /**
  * Initialize default session data
@@ -33,52 +38,112 @@ function createDefaultSettings(): AppSettings {
     warmupTarget: 50,
     soundEnabled: true,
     showUpcomingReviews: true,
+    enabledDecks: [DeckType.MULTIPLICATION], // Default to multiplication only
   };
 }
 
 /**
- * Load multiplication cards from localStorage or generate them if not found
+ * Migrate old MultiplicationCard format to new Card<MultiplicationContent> format
  */
-export function loadCards(): MultiplicationCard[] {
+interface OldMultiplicationCard {
+  id: string;
+  multiplicand: number;
+  multiplier: number;
+  fsrsCard: unknown;
+}
+
+function migrateOldCards(oldCards: OldMultiplicationCard[]): Card<unknown>[] {
+  console.log("Migrating", oldCards.length, "cards to new deck format");
+
+  return oldCards.map((oldCard) => ({
+    id: oldCard.id,
+    deckId: DeckType.MULTIPLICATION,
+    content: {
+      multiplicand: oldCard.multiplicand,
+      multiplier: oldCard.multiplier,
+    } as MultiplicationContent,
+    fsrsCard: {
+      ...(oldCard.fsrsCard as Record<string, unknown>),
+      due: new Date((oldCard.fsrsCard as { due: string }).due),
+      last_review: (oldCard.fsrsCard as { last_review?: string }).last_review
+        ? new Date((oldCard.fsrsCard as { last_review: string }).last_review)
+        : undefined,
+    },
+  })) as Card<unknown>[];
+}
+
+/**
+ * Load cards from localStorage or generate them if not found
+ */
+export function loadCards(): Card<unknown>[] {
   if (typeof window === "undefined") return [];
 
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.CARDS);
+    const dataVersion = localStorage.getItem(STORAGE_KEYS.DATA_VERSION);
+
     if (stored) {
-      const cards = JSON.parse(stored) as MultiplicationCard[];
-      // Verify we have the expected number of cards
-      if (cards.length === 784) {
-        // Parse dates that were serialized as strings in FSRS cards
-        return cards.map((card) => ({
-          ...card,
-          fsrsCard: {
-            ...card.fsrsCard,
-            due: new Date(card.fsrsCard.due),
-            last_review: card.fsrsCard.last_review
-              ? new Date(card.fsrsCard.last_review)
-              : undefined,
-          },
-        }));
+      const parsedCards = JSON.parse(stored) as unknown[];
+
+      // Check if we need to migrate from old format
+      if (!dataVersion || dataVersion < "2.0.0") {
+        // Old format: MultiplicationCard[]
+        const oldCards = parsedCards as OldMultiplicationCard[];
+
+        // Check if it's the old format (has multiplicand/multiplier instead of deckId)
+        if (
+          oldCards.length > 0 &&
+          "multiplicand" in oldCards[0] &&
+          !("deckId" in oldCards[0])
+        ) {
+          console.log(
+            "Detected old card format, migrating to new deck system...",
+          );
+          const migratedCards = migrateOldCards(oldCards);
+          saveCards(migratedCards);
+          localStorage.setItem(STORAGE_KEYS.DATA_VERSION, CURRENT_DATA_VERSION);
+          return migratedCards;
+        }
       }
+
+      // New format: Card<unknown>[]
+      const cards = parsedCards as Card<unknown>[];
+
+      // Parse dates that were serialized as strings in FSRS cards
+      const parsedDateCards = cards.map((card) => ({
+        ...card,
+        fsrsCard: {
+          ...card.fsrsCard,
+          due: new Date(card.fsrsCard.due as unknown as string),
+          last_review: card.fsrsCard.last_review
+            ? new Date(card.fsrsCard.last_review as unknown as string)
+            : undefined,
+        },
+      }));
+
+      return parsedDateCards;
     }
   } catch (error) {
     console.warn("Failed to load cards from storage:", error);
   }
 
   // Generate new cards if loading failed or incomplete
-  const cards = generateMultiplicationCards();
+  const settings = loadSettings();
+  const cards = deckRegistry.generateCardsForDecks(settings.enabledDecks);
   saveCards(cards);
+  localStorage.setItem(STORAGE_KEYS.DATA_VERSION, CURRENT_DATA_VERSION);
   return cards;
 }
 
 /**
- * Save multiplication cards to localStorage
+ * Save cards to localStorage
  */
-export function saveCards(cards: MultiplicationCard[]): void {
+export function saveCards(cards: Card<unknown>[]): void {
   if (typeof window === "undefined") return;
 
   try {
     localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
+    localStorage.setItem(STORAGE_KEYS.DATA_VERSION, CURRENT_DATA_VERSION);
   } catch (error) {
     console.error("Failed to save cards to storage:", error);
   }
@@ -137,7 +202,21 @@ export function loadSettings(): AppSettings {
   try {
     const stored = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     if (stored) {
-      return JSON.parse(stored) as AppSettings;
+      const settings = JSON.parse(stored) as Partial<AppSettings>;
+
+      // Migrate old settings that don't have enabledDecks
+      if (!settings.enabledDecks) {
+        console.log("Migrating settings: adding enabledDecks field");
+        const migratedSettings: AppSettings = {
+          ...createDefaultSettings(),
+          ...settings,
+          enabledDecks: [DeckType.MULTIPLICATION], // Default to multiplication
+        };
+        saveSettings(migratedSettings);
+        return migratedSettings;
+      }
+
+      return settings as AppSettings;
     }
   } catch (error) {
     console.warn("Failed to load settings from storage:", error);
@@ -178,7 +257,7 @@ export function clearAllData(): void {
 export interface ExportData {
   version: string;
   exportDate: string;
-  cards: MultiplicationCard[];
+  cards: Card<unknown>[];
   sessionData: SessionData;
   settings: AppSettings;
 }
@@ -217,17 +296,18 @@ function validateImportData(data: unknown): data is ExportData {
   if (!typedData.settings || typeof typedData.settings !== "object")
     return false;
 
-  // Validate cards structure
-  if (typedData.cards.length !== 784) return false;
+  // Validate cards structure (at least one card)
+  if (typedData.cards.length === 0) return false;
   const sampleCard = (typedData.cards as unknown[])[0] as Record<
     string,
     unknown
   >;
-  if (
-    !sampleCard?.id ||
-    !sampleCard?.fsrsCard ||
-    typeof sampleCard.multiplicand !== "number"
-  )
+
+  // Check for new format (has deckId) or old format (has multiplicand)
+  const hasNewFormat = "deckId" in sampleCard && "content" in sampleCard;
+  const hasOldFormat = "multiplicand" in sampleCard && "multiplier" in sampleCard;
+
+  if (!sampleCard?.id || !sampleCard?.fsrsCard || !(hasNewFormat || hasOldFormat))
     return false;
 
   // Validate session data structure
@@ -252,17 +332,27 @@ export function importData(jsonString: string): {
       return { success: false, error: "Invalid data format" };
     }
 
-    // Parse dates in cards (data is validated as ExportData)
-    const cards = data.cards.map((card) => ({
-      ...card,
-      fsrsCard: {
-        ...card.fsrsCard,
-        due: new Date(card.fsrsCard.due as unknown as string),
-        last_review: card.fsrsCard.last_review
-          ? new Date(card.fsrsCard.last_review as unknown as string)
-          : undefined,
-      },
-    }));
+    let cards: Card<unknown>[];
+
+    // Check if data is in old format and migrate if needed
+    const sampleCard = data.cards[0] as unknown as Record<string, unknown>;
+    if ("multiplicand" in sampleCard && !("deckId" in sampleCard)) {
+      console.log("Importing old format data, migrating to new deck system...");
+      const oldCards = data.cards as unknown as OldMultiplicationCard[];
+      cards = migrateOldCards(oldCards);
+    } else {
+      // Parse dates in cards (data is validated as ExportData)
+      cards = data.cards.map((card: Card<unknown>) => ({
+        ...card,
+        fsrsCard: {
+          ...card.fsrsCard,
+          due: new Date(card.fsrsCard.due as unknown as string),
+          last_review: card.fsrsCard.last_review
+            ? new Date(card.fsrsCard.last_review as unknown as string)
+            : undefined,
+        },
+      }));
+    }
 
     // Parse dates in session data
     const sessionData = {
@@ -273,16 +363,25 @@ export function importData(jsonString: string): {
       sessionStartTime: new Date(
         data.sessionData.sessionStartTime as unknown as string,
       ),
-      responses: data.sessionData.responses.map((r) => ({
+      responses: data.sessionData.responses.map((r: ResponseRecord) => ({
         ...r,
         timestamp: new Date(r.timestamp as unknown as string),
       })),
     };
 
+    // Migrate settings if needed
+    const settings = data.settings as Partial<AppSettings>;
+    const migratedSettings: AppSettings = {
+      ...createDefaultSettings(),
+      ...settings,
+      enabledDecks: settings.enabledDecks || [DeckType.MULTIPLICATION],
+    };
+
     // Save imported data
     saveCards(cards);
     saveSessionData(sessionData);
-    saveSettings(data.settings);
+    saveSettings(migratedSettings);
+    localStorage.setItem(STORAGE_KEYS.DATA_VERSION, CURRENT_DATA_VERSION);
 
     return { success: true };
   } catch (error) {

@@ -68,14 +68,18 @@ export function calculateGrade(
  */
 export function createResponseRecord(
   cardId: string,
-  userAnswer: number,
-  correctAnswer: number,
+  userAnswer: number | string,
+  correctAnswer: number | string,
   responseTime: number,
 ): ResponseRecord {
+  const isCorrect =
+    typeof userAnswer === typeof correctAnswer &&
+    userAnswer.toString() === correctAnswer.toString();
+
   return {
     cardId,
     answer: userAnswer,
-    correct: userAnswer === correctAnswer,
+    correct: isCorrect,
     responseTime,
     timestamp: new Date(),
   };

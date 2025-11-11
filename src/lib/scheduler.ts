@@ -1,10 +1,10 @@
-import type { Card } from "ts-fsrs";
-import type { MultiplicationCard } from "./types";
+import type { Card as FSRSCard } from "ts-fsrs";
+import type { Card } from "./types";
 
 /**
  * Check if a card is due for review
  */
-export function isCardDue(card: Card, now: Date = new Date()): boolean {
+export function isCardDue(card: FSRSCard, now: Date = new Date()): boolean {
   return card.due.getTime() <= now.getTime();
 }
 
@@ -12,9 +12,9 @@ export function isCardDue(card: Card, now: Date = new Date()): boolean {
  * Get all cards that are due for review
  */
 export function getDueCards(
-  cards: MultiplicationCard[],
+  cards: Card<unknown>[],
   now: Date = new Date(),
-): MultiplicationCard[] {
+): Card<unknown>[] {
   return cards.filter((card) => isCardDue(card.fsrsCard, now));
 }
 
@@ -22,9 +22,9 @@ export function getDueCards(
  * Get cards that are not yet due for review
  */
 export function getNotDueCards(
-  cards: MultiplicationCard[],
+  cards: Card<unknown>[],
   now: Date = new Date(),
-): MultiplicationCard[] {
+): Card<unknown>[] {
   return cards.filter((card) => !isCardDue(card.fsrsCard, now));
 }
 
@@ -32,8 +32,8 @@ export function getNotDueCards(
  * Sort cards by their due date (earliest first)
  */
 export function sortCardsByDueDate(
-  cards: MultiplicationCard[],
-): MultiplicationCard[] {
+  cards: Card<unknown>[],
+): Card<unknown>[] {
   return [...cards].sort(
     (a, b) => a.fsrsCard.due.getTime() - b.fsrsCard.due.getTime(),
   );
@@ -44,8 +44,8 @@ export function sortCardsByDueDate(
  * Priority order: New -> Learning -> Review -> Relearning
  */
 export function sortCardsByStatePriority(
-  cards: MultiplicationCard[],
-): MultiplicationCard[] {
+  cards: Card<unknown>[],
+): Card<unknown>[] {
   const statePriority = { 0: 0, 1: 1, 2: 2, 3: 1.5 }; // New, Learning, Review, Relearning
 
   return [...cards].sort((a, b) => {
@@ -68,9 +68,9 @@ export function sortCardsByStatePriority(
  * Priority: Due cards first (by state priority), then new cards
  */
 export function getNextCard(
-  cards: MultiplicationCard[],
+  cards: Card<unknown>[],
   now: Date = new Date(),
-): MultiplicationCard | null {
+): Card<unknown> | null {
   if (cards.length === 0) return null;
 
   const dueCards = getDueCards(cards, now);
@@ -101,7 +101,7 @@ export function getNextCard(
  * Get statistics about the card collection
  */
 export function getCardStats(
-  cards: MultiplicationCard[],
+  cards: Card<unknown>[],
   now: Date = new Date(),
 ): {
   total: number;
@@ -158,7 +158,7 @@ export function getCardStats(
  * Get upcoming review counts for the next few days
  */
 export function getUpcomingReviews(
-  cards: MultiplicationCard[],
+  cards: Card<unknown>[],
   days: number = 7,
 ): number[] {
   const now = new Date();

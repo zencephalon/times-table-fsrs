@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type Card, FSRS, Rating } from "ts-fsrs";
+import { FSRS, Rating } from "ts-fsrs";
 import ProgressDashboard from "@/components/ProgressDashboard";
 import Settings from "@/components/Settings";
 import StatisticsChart from "@/components/StatisticsChart";
@@ -19,22 +19,25 @@ import {
   saveSessionData,
   saveSettings,
 } from "@/lib/storage";
-import type { AppSettings, MultiplicationCard, SessionData } from "@/lib/types";
+import type { AppSettings, Card, SessionData } from "@/lib/types";
+import { deckRegistry } from "@/lib/decks";
+import type { MultiplicationContent } from "@/lib/decks/multiplication";
+import { DeckType } from "@/lib/deck-types";
 
 export default function Home() {
-  const [cards, setCards] = useState<MultiplicationCard[]>([]);
+  const [cards, setCards] = useState<Card<unknown>[]>([]);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [currentCard, setCurrentCard] = useState<MultiplicationCard | null>(
+  const [currentCard, setCurrentCard] = useState<Card<unknown> | null>(
     null,
   );
   const [userAnswer, setUserAnswer] = useState("");
   const [feedback, setFeedback] = useState<{
     show: boolean;
     correct: boolean;
-    correctAnswer?: number;
-    userAnswer?: number;
+    correctAnswer?: string;
+    userAnswer?: string;
     rating?: string;
     responseTime?: number;
   }>({ show: false, correct: false });
@@ -74,7 +77,7 @@ export default function Home() {
     }
   };
 
-  const selectNextCard = useCallback((cardList: MultiplicationCard[]) => {
+  const selectNextCard = useCallback((cardList: Card<unknown>[]) => {
     const nextCard = getNextCard(cardList);
     if (!nextCard) return;
 
@@ -203,9 +206,13 @@ export default function Home() {
 
     try {
       const responseTime = performance.now() - questionStartTime;
-      const userAnswerNum = parseInt(userAnswer, 10);
-      const correctAnswer = currentCard.multiplicand * currentCard.multiplier;
-      const isCorrect = userAnswerNum === correctAnswer;
+
+      // Get deck-specific logic for this card
+      const deck = deckRegistry.getDeckForCard(currentCard);
+
+      // Check answer using deck-specific logic
+      const answerCheck = deck.checkAnswer(currentCard, userAnswer);
+      const isCorrect = answerCheck.isCorrect;
 
       // Update speed statistics
       const newSpeedStats = updateSpeedStats(
@@ -220,8 +227,8 @@ export default function Home() {
       // Create response record
       const responseRecord = createResponseRecord(
         currentCard.id,
-        userAnswerNum,
-        correctAnswer,
+        userAnswer,
+        answerCheck.correctAnswer,
         responseTime,
       );
 
@@ -229,8 +236,8 @@ export default function Home() {
       const now = new Date();
       const reviewRecord = fsrs.repeat(currentCard.fsrsCard, now);
 
-      // Get the updated card based on the rating
-      let updatedFsrsCard: Card;
+      // Get the updated FSRS card based on the rating
+      let updatedFsrsCard;
       switch (rating) {
         case 1: // Again
           updatedFsrsCard = reviewRecord[Rating.Again].card;
@@ -275,8 +282,8 @@ export default function Home() {
       setFeedback({
         show: true,
         correct: isCorrect,
-        correctAnswer: correctAnswer,
-        userAnswer: userAnswerNum,
+        correctAnswer: answerCheck.correctAnswer,
+        userAnswer: answerCheck.userAnswer,
         rating: ratingNames[rating as keyof typeof ratingNames],
         responseTime: Math.round(responseTime),
       });
@@ -325,10 +332,11 @@ export default function Home() {
   const handleCorrectionSubmit = () => {
     if (!currentCard || !needsCorrection) return;
 
-    const correctAnswer = currentCard.multiplicand * currentCard.multiplier;
-    const userCorrectionNum = parseInt(correctionAnswer, 10);
+    // Get deck-specific logic for checking the correction
+    const deck = deckRegistry.getDeckForCard(currentCard);
+    const answerCheck = deck.checkAnswer(currentCard, correctionAnswer);
 
-    if (userCorrectionNum === correctAnswer) {
+    if (answerCheck.isCorrect) {
       // Play celebration sound for correct correction
       playCelebrationSound();
       setNeedsCorrection(false);
@@ -532,14 +540,22 @@ export default function Home() {
                 <div className="text-center">
                   {/* Question Display */}
                   <div className="mb-8">
-                    <div className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 font-mono">
-                      <div className="text-right">{currentCard.multiplier}</div>
-                      <div className="text-right">
-                        x {currentCard.multiplicand}
+                    {currentCard.deckId === DeckType.MULTIPLICATION ? (
+                      /* Vertical format for multiplication */
+                      <div className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 font-mono">
+                        <div className="text-right">{(currentCard.content as MultiplicationContent).multiplier}</div>
+                        <div className="text-right">
+                          x {(currentCard.content as MultiplicationContent).multiplicand}
+                        </div>
+                        <div className="border-t-4 border-gray-400 dark:border-gray-500 my-2"></div>
+                        <div className="text-right">?</div>
                       </div>
-                      <div className="border-t-4 border-gray-400 dark:border-gray-500 my-2"></div>
-                      <div className="text-right">?</div>
-                    </div>
+                    ) : (
+                      /* Generic format for other decks */
+                      <div className="text-6xl sm:text-7xl lg:text-8xl font-bold text-gray-900 dark:text-white mb-6">
+                        {deckRegistry.getDeckForCard(currentCard).formatQuestion(currentCard)}
+                      </div>
+                    )}
                   </div>
 
                   {/* Answer Input */}

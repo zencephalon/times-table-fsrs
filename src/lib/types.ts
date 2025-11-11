@@ -1,15 +1,24 @@
-import type { Card } from "ts-fsrs";
+import type { Card as FSRSCard } from "ts-fsrs";
+import type { Card } from "./deck-types";
+import { DeckType } from "./deck-types";
 
+// Re-export deck-related types for convenience
+export type { Card, DeckType, DeckDefinition } from "./deck-types";
+
+/**
+ * @deprecated Use Card<MultiplicationContent> from deck-types instead
+ * Kept temporarily for backward compatibility during migration
+ */
 export interface MultiplicationCard {
   id: string;
   multiplicand: number; // 2-9
   multiplier: number; // 2-99
-  fsrsCard: Card; // ts-fsrs Card object
+  fsrsCard: FSRSCard; // ts-fsrs Card object
 }
 
 export interface ResponseRecord {
   cardId: string;
-  answer: number;
+  answer: number | string; // Support both numeric and text answers
   correct: boolean;
   responseTime: number; // milliseconds
   timestamp: Date;
@@ -33,4 +42,5 @@ export interface AppSettings {
   warmupTarget: number;
   soundEnabled: boolean;
   showUpcomingReviews: boolean;
+  enabledDecks: DeckType[]; // Which decks are currently enabled for practice
 }
