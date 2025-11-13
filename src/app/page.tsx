@@ -15,8 +15,9 @@ import SessionStartScreen from "@/components/SessionStartScreen";
 import Settings from "@/components/Settings";
 import StatisticsModal from "@/components/StatisticsModal";
 import UpcomingReviewsDisplay from "@/components/UpcomingReviewsDisplay";
+import { DeckType, isCardOfDeck } from "@/lib/deck-types";
 import { deckRegistry } from "@/lib/decks";
-import type { DeckType } from "@/lib/deck-types";
+import type { KatakanaContent } from "@/lib/decks/katakana";
 import {
   calculateGrade,
   createDefaultSpeedStats,
@@ -83,6 +84,21 @@ export default function Home() {
       });
     } catch (error) {
       console.warn("Could not load celebration sound:", error);
+    }
+  };
+
+  // Play katakana character audio
+  const playKatakanaAudio = (character: string) => {
+    if (!settings?.soundEnabled) return;
+
+    try {
+      const audio = new Audio(`/katakana/${character}.wav`);
+      audio.volume = 0.5; // Set volume to 50%
+      audio.play().catch((error) => {
+        console.warn(`Could not play katakana audio for ${character}:`, error);
+      });
+    } catch (error) {
+      console.warn(`Could not load katakana audio for ${character}:`, error);
     }
   };
 
@@ -364,8 +380,12 @@ export default function Home() {
         responseTime: Math.round(responseTime),
       });
 
-      // Play celebration sound for correct answers
-      if (isCorrect) {
+      // Play audio feedback
+      if (isCardOfDeck<KatakanaContent>(currentCard, DeckType.KATAKANA)) {
+        // For katakana cards, play the character audio regardless of correctness
+        playKatakanaAudio(currentCard.content.character);
+      } else if (isCorrect) {
+        // For other decks, play celebration sound only for correct answers
         playCelebrationSound();
       }
 
@@ -413,8 +433,14 @@ export default function Home() {
     const answerCheck = deck.checkAnswer(currentCard, correctionAnswer);
 
     if (answerCheck.isCorrect) {
-      // Play celebration sound for correct correction
-      playCelebrationSound();
+      // Play audio feedback for correct correction
+      if (isCardOfDeck<KatakanaContent>(currentCard, DeckType.KATAKANA)) {
+        // For katakana cards, play the character audio
+        playKatakanaAudio(currentCard.content.character);
+      } else {
+        // For other decks, play celebration sound
+        playCelebrationSound();
+      }
       setNeedsCorrection(false);
       setCorrectionAnswer("");
       // Allow proceeding to next card
