@@ -2,10 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FSRS, Rating } from "ts-fsrs";
-import ProgressDashboard from "@/components/ProgressDashboard";
-import Settings from "@/components/Settings";
-import StatisticsChart from "@/components/StatisticsChart";
+import ActionButtons from "@/components/ActionButtons";
+import AnswerInput from "@/components/AnswerInput";
+import CardStatsDisplay from "@/components/CardStatsDisplay";
 import DeckSelector from "@/components/DeckSelector";
+import ErrorDisplay from "@/components/ErrorDisplay";
+import FeedbackDisplay from "@/components/FeedbackDisplay";
+import LoadingScreen from "@/components/LoadingScreen";
+import ProgressDashboard from "@/components/ProgressDashboard";
+import QuestionDisplay from "@/components/QuestionDisplay";
+import SessionStartScreen from "@/components/SessionStartScreen";
+import Settings from "@/components/Settings";
+import StatisticsModal from "@/components/StatisticsModal";
+import UpcomingReviewsDisplay from "@/components/UpcomingReviewsDisplay";
+import { deckRegistry } from "@/lib/decks";
+import type { DeckType } from "@/lib/deck-types";
 import {
   calculateGrade,
   createDefaultSpeedStats,
@@ -22,18 +33,13 @@ import {
   saveSettings,
 } from "@/lib/storage";
 import type { AppSettings, Card, SessionData } from "@/lib/types";
-import { deckRegistry } from "@/lib/decks";
-import type { MultiplicationContent } from "@/lib/decks/multiplication";
-import { DeckType } from "@/lib/deck-types";
 
 export default function Home() {
   const [cards, setCards] = useState<Card<unknown>[]>([]);
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const [currentCard, setCurrentCard] = useState<Card<unknown> | null>(
-    null,
-  );
+  const [currentCard, setCurrentCard] = useState<Card<unknown> | null>(null);
   const [userAnswer, setUserAnswer] = useState("");
   const [feedback, setFeedback] = useState<{
     show: boolean;
@@ -158,9 +164,7 @@ export default function Home() {
         const deckCards = cards.filter((card) => card.deckId === deckId);
         if (deckCards.length === 0) {
           // Generate new cards for this deck
-          const newDeckCards = deckRegistry
-            .getDeck(deckId)
-            .generateCards();
+          const newDeckCards = deckRegistry.getDeck(deckId).generateCards();
           const updatedCards = [...cards, ...newDeckCards];
           setCards(updatedCards);
           saveCards(updatedCards);
@@ -196,7 +200,12 @@ export default function Home() {
       if (showProgressDashboard || showStatistics || showSettings) return;
 
       // Handle deck selection completion
-      if (!deckSelectionComplete && e.key === "Enter" && settings && settings.enabledDecks.length > 0) {
+      if (
+        !deckSelectionComplete &&
+        e.key === "Enter" &&
+        settings &&
+        settings.enabledDecks.length > 0
+      ) {
         e.preventDefault();
         handleDeckSelectionComplete();
         return;
@@ -301,7 +310,7 @@ export default function Home() {
       const reviewRecord = fsrs.repeat(currentCard.fsrsCard, now);
 
       // Get the updated FSRS card based on the rating
-      let updatedFsrsCard;
+      let updatedFsrsCard: typeof currentCard.fsrsCard;
       switch (rating) {
         case 1: // Again
           updatedFsrsCard = reviewRecord[Rating.Again].card;
@@ -459,19 +468,7 @@ export default function Home() {
   };
 
   if (!isLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-          <div className="text-lg text-gray-900 dark:text-white">
-            Loading cards...
-          </div>
-          <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            Initializing your practice session
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
@@ -485,114 +482,21 @@ export default function Home() {
             Master skills through spaced repetition practice
           </p>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row justify-center space-y-2 sm:space-y-0 sm:space-x-4 mt-4">
-            <button
-              type="button"
-              onClick={() => setShowProgressDashboard(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              title="View Progress (Ctrl/Cmd + P)"
-            >
-              📊 Progress
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowStatistics(true)}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              title="View Statistics (Ctrl/Cmd + S)"
-            >
-              📈 Statistics
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowSettings(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-              title="Settings (Ctrl/Cmd + B)"
-            >
-              ⚙️ Settings
-            </button>
-          </div>
+          <ActionButtons
+            onShowProgress={() => setShowProgressDashboard(true)}
+            onShowStatistics={() => setShowStatistics(true)}
+            onShowSettings={() => setShowSettings(true)}
+          />
         </header>
 
-        {/* Error Display */}
         {error && (
-          <div className="max-w-2xl mx-auto mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <title>Error</title>
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-red-700 dark:text-red-200">
-                  {error}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setError(null)}
-                  className="text-xs text-red-600 dark:text-red-300 underline mt-1"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
+          <ErrorDisplay error={error} onDismiss={() => setError(null)} />
         )}
 
         <main className="max-w-4xl mx-auto">
-          {/* Review Schedule Display */}
-          {cardStats &&
-            upcomingReviews.length > 0 &&
-            settings?.showUpcomingReviews && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                  Upcoming Reviews
-                </h2>
-                <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 text-center text-sm">
-                  {upcomingReviews.slice(0, 7).map((count, index) => {
-                    const date = new Date();
-                    date.setDate(date.getDate() + index);
-                    const dayName = date.toLocaleDateString("en-US", {
-                      weekday: "short",
-                    });
-                    const dayNumber = date.getDate();
-                    const dayKey = `day-${index}-${dayNumber}`;
-
-                    return (
-                      <div
-                        key={dayKey}
-                        className="p-2 bg-gray-50 dark:bg-gray-700 rounded"
-                      >
-                        <div className="font-semibold text-gray-900 dark:text-white">
-                          {index === 0 ? "Today" : dayName}
-                        </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
-                          {dayNumber}
-                        </div>
-                        <div
-                          className={`text-lg font-bold ${
-                            count > 0
-                              ? "text-blue-600 dark:text-blue-400"
-                              : "text-gray-400 dark:text-gray-500"
-                          }`}
-                        >
-                          {count}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+          {cardStats && settings?.showUpcomingReviews && (
+            <UpcomingReviewsDisplay upcomingReviews={upcomingReviews} />
+          )}
 
           {/* Deck Selection Screen */}
           {!deckSelectionComplete && settings ? (
@@ -603,319 +507,53 @@ export default function Home() {
               onStartPractice={handleDeckSelectionComplete}
             />
           ) : !sessionStarted ? (
-            /* Session Start Screen */
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 max-w-2xl mx-auto">
-              <div className="text-center">
-                <div className="mb-8">
-                  <div className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-6">
-                    Ready to Practice?
-                  </div>
-                  <div className="text-lg text-gray-600 dark:text-gray-400 mb-8">
-                    Press{" "}
-                    <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm font-mono">
-                      Enter
-                    </kbd>{" "}
-                    to start your practice session
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={startSession}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-8 rounded-lg text-xl transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                  Start Practice Session
-                </button>
-
-                <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
-                  {cardStats && (
-                    <div>
-                      {cardStats.due} cards due • {cardStats.new} new cards •{" "}
-                      {cardStats.learning} learning
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setDeckSelectionComplete(false)}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    ← Change deck selection
-                  </button>
-                </div>
-              </div>
-            </div>
+            <SessionStartScreen
+              cards={getFilteredCards()}
+              onStartSession={startSession}
+              onChangeDeckSelection={() => setDeckSelectionComplete(false)}
+            />
           ) : (
             currentCard && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 max-w-2xl mx-auto">
                 <div className="text-center">
-                  {/* Question Display */}
                   <div className="mb-8">
-                    {currentCard.deckId === DeckType.MULTIPLICATION ? (
-                      /* Vertical format for multiplication */
-                      <div className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 font-mono">
-                        <div className="text-right">{(currentCard.content as MultiplicationContent).multiplier}</div>
-                        <div className="text-right">
-                          x {(currentCard.content as MultiplicationContent).multiplicand}
-                        </div>
-                        <div className="border-t-4 border-gray-400 dark:border-gray-500 my-2"></div>
-                        <div className="text-right">?</div>
-                      </div>
-                    ) : (
-                      /* Generic format for other decks */
-                      <div className="text-6xl sm:text-7xl lg:text-8xl font-bold text-gray-900 dark:text-white mb-6">
-                        {deckRegistry.getDeckForCard(currentCard).formatQuestion(currentCard)}
-                      </div>
-                    )}
+                    <QuestionDisplay card={currentCard} />
                   </div>
 
-                  {/* Answer Input */}
                   {!feedback.show ? (
-                    <div className="mb-6">
-                      <input
-                        ref={inputRef}
-                        type={
-                          currentCard &&
-                          deckRegistry.getDeckForCard(currentCard).inputType ===
-                            "number"
-                            ? "text"
-                            : "text"
-                        }
-                        inputMode={
-                          currentCard &&
-                          deckRegistry.getDeckForCard(currentCard).inputType ===
-                            "number"
-                            ? "numeric"
-                            : "text"
-                        }
-                        value={userAnswer}
-                        onChange={handleInputChange}
-                        onKeyPress={handleKeyPress}
-                        className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center w-48 sm:w-56 lg:w-64 p-3 sm:p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:outline-none"
-                        placeholder={
-                          currentCard &&
-                          deckRegistry.getDeckForCard(currentCard).inputType ===
-                            "number"
-                            ? "Number"
-                            : "Your answer"
-                        }
-                        maxLength={
-                          currentCard &&
-                          deckRegistry.getDeckForCard(currentCard).inputType ===
-                            "number"
-                            ? 5
-                            : 20
-                        }
-                      />
-                      <div className="mt-4 flex justify-center">
-                        <button
-                          type="button"
-                          onClick={handleSubmitAnswer}
-                          disabled={!userAnswer || isSubmitting}
-                          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-8 rounded-lg text-lg transition-colors flex items-center justify-center"
-                        >
-                          {isSubmitting ? (
-                            <>
-                              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Processing...
-                            </>
-                          ) : (
-                            "Submit"
-                          )}
-                        </button>
-                      </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                        Press Enter to submit
-                      </p>
-                    </div>
+                    <AnswerInput
+                      card={currentCard}
+                      value={userAnswer}
+                      onChange={handleInputChange}
+                      onKeyPress={handleKeyPress}
+                      onSubmit={handleSubmitAnswer}
+                      inputRef={inputRef}
+                      isSubmitting={isSubmitting}
+                    />
                   ) : (
-                    /* Feedback Display */
-                    <div className="mb-6">
-                      <div
-                        className={`text-4xl font-bold mb-4 ${
-                          feedback.correct
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {feedback.correct ? "✓ Correct!" : "✗ Incorrect"}
-                      </div>
-
-                      {!feedback.correct && (
-                        <div className="text-2xl text-gray-700 dark:text-gray-300 space-y-2">
-                          <div>
-                            Your answer:{" "}
-                            <span className="font-bold text-red-600 dark:text-red-400">
-                              {feedback.userAnswer}
-                            </span>
-                          </div>
-                          <div>
-                            Correct answer:{" "}
-                            <span className="font-bold text-green-600 dark:text-green-400">
-                              {feedback.correctAnswer}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {needsCorrection ? (
-                        <div className="mt-6">
-                          <div className="text-lg text-gray-600 dark:text-gray-400 mb-4">
-                            Please enter the correct answer to continue:
-                          </div>
-                          <input
-                            ref={correctionInputRef}
-                            type="text"
-                            inputMode={
-                              currentCard &&
-                              deckRegistry.getDeckForCard(currentCard).inputType ===
-                                "number"
-                                ? "numeric"
-                                : "text"
-                            }
-                            value={correctionAnswer}
-                            onChange={handleCorrectionInputChange}
-                            onKeyPress={handleCorrectionKeyPress}
-                            className="text-xl font-bold text-center w-32 p-3 border-2 border-orange-300 dark:border-orange-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-orange-500 focus:outline-none"
-                            placeholder="Answer"
-                            maxLength={
-                              currentCard &&
-                              deckRegistry.getDeckForCard(currentCard).inputType ===
-                                "number"
-                                ? 5
-                                : 20
-                            }
-                          />
-                          <div className="mt-3">
-                            <button
-                              type="button"
-                              onClick={handleCorrectionSubmit}
-                              disabled={!correctionAnswer}
-                              className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
-                            >
-                              Submit Correction
-                            </button>
-                          </div>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                            Press Enter to submit the correct answer
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="text-lg text-gray-600 dark:text-gray-400 mt-4">
-                          {feedback.correct ? "Great job!" : "Keep practicing!"}
-                        </div>
-                      )}
-
-                      {feedback.responseTime && (
-                        <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                          Response time: {feedback.responseTime}ms
-                          {feedback.rating && currentCard && (
-                            <span className="ml-2">
-                              • Rating: {feedback.rating}
-                              {sessionData &&
-                                (() => {
-                                  const deckStats =
-                                    sessionData.speedStats[currentCard.deckId] ||
-                                    createDefaultSpeedStats();
-                                  return !deckStats.isWarmedUp ? (
-                                    <span className="text-xs ml-1">(warmup)</span>
-                                  ) : null;
-                                })()}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {!needsCorrection && (
-                        <div className="mt-4">
-                          <button
-                            type="button"
-                            onClick={() => selectNextCard(getFilteredCards())}
-                            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg text-lg transition-colors"
-                          >
-                            Next
-                          </button>
-                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                            Press Enter or tap Next to continue
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    sessionData && (
+                      <FeedbackDisplay
+                        feedback={feedback}
+                        needsCorrection={needsCorrection}
+                        correctionAnswer={correctionAnswer}
+                        card={currentCard}
+                        sessionData={sessionData}
+                        onCorrectionChange={handleCorrectionInputChange}
+                        onCorrectionKeyPress={handleCorrectionKeyPress}
+                        onCorrectionSubmit={handleCorrectionSubmit}
+                        onNextCard={() => selectNextCard(getFilteredCards())}
+                        correctionInputRef={correctionInputRef}
+                      />
+                    )
                   )}
 
-                  {/* Stats Display */}
-                  <div className="mt-8 text-sm text-gray-500 dark:text-gray-400 space-y-2">
-                    {cardStats && (
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-                        <div>
-                          <div className="font-semibold text-blue-600 dark:text-blue-400">
-                            {cardStats.due}
-                          </div>
-                          <div>Due cards</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-green-600 dark:text-green-400">
-                            {cardStats.new}
-                          </div>
-                          <div>New cards</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-yellow-600 dark:text-yellow-400">
-                            {cardStats.learning}
-                          </div>
-                          <div>Learning</div>
-                        </div>
-                        <div>
-                          <div className="font-semibold text-purple-600 dark:text-purple-400">
-                            {cardStats.review}
-                          </div>
-                          <div>Review</div>
-                        </div>
-                      </div>
-                    )}
-                    {currentCard && (
-                      <div className="text-center mt-4">
-                        <div className="text-xs">
-                          Card State:{" "}
-                          {
-                            ["New", "Learning", "Review", "Relearning"][
-                              currentCard.fsrsCard.state
-                            ]
-                          }
-                          {currentCard.fsrsCard.state !== 0 && (
-                            <span className="ml-2">
-                              • Interval:{" "}
-                              {Math.round(currentCard.fsrsCard.elapsed_days)}d
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {sessionData && currentCard && (
-                      <div className="text-center space-y-1">
-                        <div>
-                          {(() => {
-                            const deckStats =
-                              sessionData.speedStats[currentCard.deckId] ||
-                              createDefaultSpeedStats();
-                            return deckStats.isWarmedUp
-                              ? `Warmed up for ${deckRegistry.getDeckForCard(currentCard).name} (${deckStats.responses.length} responses)`
-                              : `Warmup (${deckRegistry.getDeckForCard(currentCard).name}): ${deckStats.responses.length}/${
-                                  settings?.warmupTarget || 50
-                                }`;
-                          })()}
-                        </div>
-                        {sessionStartTime && (
-                          <div className="text-xs">
-                            Session started:{" "}
-                            {sessionStartTime.toLocaleTimeString()}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <CardStatsDisplay
+                    cards={getFilteredCards()}
+                    currentCard={currentCard}
+                    sessionData={sessionData}
+                    sessionStartTime={sessionStartTime}
+                    settings={settings}
+                  />
                 </div>
               </div>
             )
@@ -933,38 +571,12 @@ export default function Home() {
         />
       )}
 
-      {/* Statistics Modal */}
-      {sessionData && showStatistics && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Detailed Statistics
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setShowStatistics(false)}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl"
-                >
-                  ×
-                </button>
-              </div>
-
-              <StatisticsChart responses={sessionData.responses} />
-
-              <div className="mt-6 text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowStatistics(false)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
-                >
-                  Close Statistics
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {sessionData && (
+        <StatisticsModal
+          sessionData={sessionData}
+          isOpen={showStatistics}
+          onClose={() => setShowStatistics(false)}
+        />
       )}
 
       {/* Settings Modal */}

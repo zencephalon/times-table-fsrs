@@ -1,5 +1,5 @@
-import { deckRegistry } from "./decks";
 import { DeckType } from "./deck-types";
+import { deckRegistry } from "./decks";
 import type { MultiplicationContent } from "./decks/multiplication";
 import type {
   AppSettings,
@@ -341,9 +341,14 @@ function validateImportData(data: unknown): data is ExportData {
 
   // Check for new format (has deckId) or old format (has multiplicand)
   const hasNewFormat = "deckId" in sampleCard && "content" in sampleCard;
-  const hasOldFormat = "multiplicand" in sampleCard && "multiplier" in sampleCard;
+  const hasOldFormat =
+    "multiplicand" in sampleCard && "multiplier" in sampleCard;
 
-  if (!sampleCard?.id || !sampleCard?.fsrsCard || !(hasNewFormat || hasOldFormat))
+  if (
+    !sampleCard?.id ||
+    !sampleCard?.fsrsCard ||
+    !(hasNewFormat || hasOldFormat)
+  )
     return false;
 
   // Validate session data structure

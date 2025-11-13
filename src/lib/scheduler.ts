@@ -31,9 +31,7 @@ export function getNotDueCards(
 /**
  * Sort cards by their due date (earliest first)
  */
-export function sortCardsByDueDate(
-  cards: Card<unknown>[],
-): Card<unknown>[] {
+export function sortCardsByDueDate(cards: Card<unknown>[]): Card<unknown>[] {
   return [...cards].sort(
     (a, b) => a.fsrsCard.due.getTime() - b.fsrsCard.due.getTime(),
   );

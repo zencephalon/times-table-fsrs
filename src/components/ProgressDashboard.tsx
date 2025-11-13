@@ -182,9 +182,16 @@ export default function ProgressDashboard({
 
                 {/* Per-deck speed stats */}
                 {Object.entries(deckSpeedStats).map(([deckId, stats]) => (
-                  <div key={deckId} className="border-t border-gray-200 dark:border-gray-600 pt-3">
+                  <div
+                    key={deckId}
+                    className="border-t border-gray-200 dark:border-gray-600 pt-3"
+                  >
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {deckId === "multiplication" ? "Multiplication" : deckId === "katakana" ? "Katakana" : deckId}
+                      {deckId === "multiplication"
+                        ? "Multiplication"
+                        : deckId === "katakana"
+                          ? "Katakana"
+                          : deckId}
                     </div>
                     {stats.isWarmedUp ? (
                       <div className="grid grid-cols-2 gap-2 text-xs">

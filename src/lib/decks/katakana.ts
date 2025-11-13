@@ -1,9 +1,5 @@
 import { createEmptyCard } from "ts-fsrs";
-import type {
-  AnswerCheckResult,
-  Card,
-  DeckDefinition,
-} from "../deck-types";
+import type { AnswerCheckResult, Card, DeckDefinition } from "../deck-types";
 import { DeckType } from "../deck-types";
 
 /**
@@ -120,7 +116,9 @@ export const katakanaDeck: DeckDefinition<KatakanaContent> = {
   ): AnswerCheckResult {
     // Convert answer to lowercase string for comparison
     const userAnswer =
-      typeof answer === "string" ? answer.toLowerCase().trim() : answer.toString();
+      typeof answer === "string"
+        ? answer.toLowerCase().trim()
+        : answer.toString();
 
     // Check if user's answer matches any of the accepted romaji
     const isCorrect = card.content.romaji.some(

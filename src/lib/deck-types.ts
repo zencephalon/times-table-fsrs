@@ -97,9 +97,7 @@ export function getCardContent<TContent>(
   deckType: DeckType,
 ): TContent {
   if (card.deckId !== deckType) {
-    throw new Error(
-      `Card ${card.id} does not belong to deck ${deckType}`,
-    );
+    throw new Error(`Card ${card.id} does not belong to deck ${deckType}`);
   }
   return card.content as TContent;
 }

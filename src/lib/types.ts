@@ -1,9 +1,8 @@
 import type { Card as FSRSCard } from "ts-fsrs";
-import type { Card } from "./deck-types";
-import { DeckType } from "./deck-types";
+import type { DeckType } from "./deck-types";
 
 // Re-export deck-related types for convenience
-export type { Card, DeckType, DeckDefinition } from "./deck-types";
+export type { Card, DeckDefinition, DeckType } from "./deck-types";
 
 /**
  * @deprecated Use Card<MultiplicationContent> from deck-types instead

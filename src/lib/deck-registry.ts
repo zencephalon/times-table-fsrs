@@ -63,7 +63,9 @@ export class DeckRegistry {
         const cards = deck.generateCards();
         allCards.push(...cards);
       } else {
-        console.warn(`Attempted to generate cards for unregistered deck: ${deckId}`);
+        console.warn(
+          `Attempted to generate cards for unregistered deck: ${deckId}`,
+        );
       }
     }
 

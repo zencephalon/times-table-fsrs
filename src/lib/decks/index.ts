@@ -19,6 +19,6 @@ export { deckRegistry };
 // Export individual deck definitions for direct access if needed
 export { multiplicationDeck, katakanaDeck };
 
+export type { KatakanaContent } from "./katakana";
 // Re-export types for convenience
 export type { MultiplicationContent } from "./multiplication";
-export type { KatakanaContent } from "./katakana";

@@ -1,9 +1,5 @@
 import { createEmptyCard } from "ts-fsrs";
-import type {
-  AnswerCheckResult,
-  Card,
-  DeckDefinition,
-} from "../deck-types";
+import type { AnswerCheckResult, Card, DeckDefinition } from "../deck-types";
 import { DeckType } from "../deck-types";
 
 /**
@@ -33,7 +29,8 @@ function shuffleArray<T>(array: T[]): T[] {
 export const multiplicationDeck: DeckDefinition<MultiplicationContent> = {
   id: DeckType.MULTIPLICATION,
   name: "Multiplication Tables",
-  description: "Learn multiplication tables (2-9 × 2-99) with 784 unique problems",
+  description:
+    "Learn multiplication tables (2-9 × 2-99) with 784 unique problems",
   inputType: "number",
 
   generateCards(): Card<MultiplicationContent>[] {
@@ -68,10 +65,11 @@ export const multiplicationDeck: DeckDefinition<MultiplicationContent> = {
     card: Card<MultiplicationContent>,
     answer: string | number,
   ): AnswerCheckResult {
-    const correctAnswer =
-      card.content.multiplicand * card.content.multiplier;
-    const userAnswerNum = typeof answer === "number" ? answer : parseInt(answer, 10);
-    const isCorrect = !isNaN(userAnswerNum) && userAnswerNum === correctAnswer;
+    const correctAnswer = card.content.multiplicand * card.content.multiplier;
+    const userAnswerNum =
+      typeof answer === "number" ? answer : parseInt(answer, 10);
+    const isCorrect =
+      !Number.isNaN(userAnswerNum) && userAnswerNum === correctAnswer;
 
     return {
       isCorrect,
