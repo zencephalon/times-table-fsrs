@@ -176,17 +176,19 @@ export default function Home() {
     setDeckSelectionComplete(true);
   }, []);
 
+  const getFilteredCards = useCallback(() => {
+    if (!settings) return cards;
+    return deckRegistry.filterCardsByDecks(cards, settings.enabledDecks);
+  }, [cards, settings]);
+
   const startSession = useCallback(() => {
     setSessionStarted(true);
     // Filter cards by enabled decks
     if (settings && cards.length > 0) {
-      const filteredCards = deckRegistry.filterCardsByDecks(
-        cards,
-        settings.enabledDecks,
-      );
+      const filteredCards = getFilteredCards();
       selectNextCard(filteredCards);
     }
-  }, [cards, settings, selectNextCard]);
+  }, [cards, settings, selectNextCard, getFilteredCards]);
 
   useEffect(() => {
     const handleGlobalKeyPress = (e: KeyboardEvent) => {
@@ -209,7 +211,7 @@ export default function Home() {
 
       if (e.key === "Enter" && feedback.show && !needsCorrection) {
         e.preventDefault();
-        selectNextCard(cards);
+        selectNextCard(getFilteredCards());
       }
 
       // Keyboard shortcuts
@@ -243,7 +245,7 @@ export default function Home() {
   }, [
     feedback.show,
     selectNextCard,
-    cards,
+    getFilteredCards,
     showProgressDashboard,
     showStatistics,
     showSettings,
@@ -384,7 +386,7 @@ export default function Home() {
       handleSubmitAnswer();
     } else if (e.key === "Enter" && feedback.show && !needsCorrection) {
       e.preventDefault();
-      selectNextCard(cards);
+      selectNextCard(getFilteredCards());
     }
   };
 
@@ -830,7 +832,7 @@ export default function Home() {
                         <div className="mt-4">
                           <button
                             type="button"
-                            onClick={() => selectNextCard(cards)}
+                            onClick={() => selectNextCard(getFilteredCards())}
                             className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg text-lg transition-colors"
                           >
                             Next
