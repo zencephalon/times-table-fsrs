@@ -37,26 +37,6 @@ export default function AnswerInput({
         placeholder={isNumberInput ? "Number" : "Your answer"}
         maxLength={isNumberInput ? 5 : 20}
       />
-      <div className="mt-4 flex justify-center">
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={!value || isSubmitting}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-8 rounded-lg text-lg transition-colors flex items-center justify-center"
-        >
-          {isSubmitting ? (
-            <>
-              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Processing...
-            </>
-          ) : (
-            "Submit"
-          )}
-        </button>
-      </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-        Press Enter to submit
-      </p>
     </div>
   );
 }

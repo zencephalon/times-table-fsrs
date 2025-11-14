@@ -282,7 +282,7 @@ export default function Home() {
     settings,
   ]);
 
-  const handleSubmitAnswer = async () => {
+  const handleSubmitAnswer = async (answerToSubmit?: string) => {
     if (!currentCard || !questionStartTime || !sessionData || !settings) return;
 
     setIsSubmitting(true);
@@ -295,7 +295,9 @@ export default function Home() {
       const deck = deckRegistry.getDeckForCard(currentCard);
 
       // Check answer using deck-specific logic
-      const answerCheck = deck.checkAnswer(currentCard, userAnswer);
+      // Use provided answer or fall back to userAnswer state
+      const answer = answerToSubmit ?? userAnswer;
+      const answerCheck = deck.checkAnswer(currentCard, answer);
       const isCorrect = answerCheck.isCorrect;
 
       // Get or create speed stats for this deck
@@ -411,9 +413,9 @@ export default function Home() {
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && userAnswer && !feedback.show) {
-      handleSubmitAnswer();
-    } else if (e.key === "Enter" && feedback.show && !needsCorrection) {
+    // Only handle Enter for moving to next question after feedback
+    // Don't submit answers on Enter - answers auto-submit when correct
+    if (e.key === "Enter" && feedback.show && !needsCorrection) {
       e.preventDefault();
       selectNextCard(getFilteredCards());
     }
@@ -458,14 +460,30 @@ export default function Home() {
     // Get deck-specific input validation
     const deck = deckRegistry.getDeckForCard(currentCard);
 
+    let validatedValue = value;
     if (deck.inputType === "number") {
       // Only allow numeric input
       if (value === "" || /^\d+$/.test(value)) {
-        setUserAnswer(value);
+        validatedValue = value;
+      } else {
+        return; // Don't update if invalid
       }
-    } else {
-      // Allow any text input for text-based decks
-      setUserAnswer(value);
+    }
+
+    // Update the answer
+    setUserAnswer(validatedValue);
+
+    // Auto-check answer if not empty and feedback is not already showing
+    if (validatedValue && !feedback.show && !isSubmitting) {
+      // Check if answer is correct
+      const answerCheck = deck.checkAnswer(currentCard, validatedValue);
+      if (answerCheck.isCorrect) {
+        // Automatically submit when correct, passing the validated value directly
+        // to avoid state timing issues
+        setTimeout(() => {
+          handleSubmitAnswer(validatedValue);
+        }, 0);
+      }
     }
   };
 
