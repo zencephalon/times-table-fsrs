@@ -371,28 +371,40 @@ export default function Home() {
       saveCards(updatedCards);
       saveSessionData(newSessionData);
 
-      // Show feedback with rating information
-      const ratingNames = { 1: "Again", 2: "Hard", 3: "Good", 4: "Easy" };
-      setFeedback({
-        show: true,
-        correct: isCorrect,
-        correctAnswer: answerCheck.correctAnswer,
-        userAnswer: answerCheck.userAnswer,
-        rating: ratingNames[rating as keyof typeof ratingNames],
-        responseTime: Math.round(responseTime),
-      });
+      if (isCorrect) {
+        // For correct answers: play audio and immediately move to next card
+        if (isCardOfDeck<KatakanaContent>(currentCard, DeckType.KATAKANA)) {
+          // For katakana cards, play the character audio
+          playKatakanaAudio(currentCard.content.character);
+        } else {
+          // For other decks, play celebration sound
+          playCelebrationSound();
+        }
 
-      // Play audio feedback
-      if (isCardOfDeck<KatakanaContent>(currentCard, DeckType.KATAKANA)) {
-        // For katakana cards, play the character audio regardless of correctness
-        playKatakanaAudio(currentCard.content.character);
-      } else if (isCorrect) {
-        // For other decks, play celebration sound only for correct answers
-        playCelebrationSound();
-      }
+        // Immediately advance to next card without showing feedback
+        const filteredCards = deckRegistry.filterCardsByDecks(
+          updatedCards,
+          settings.enabledDecks,
+        );
+        selectNextCard(filteredCards);
+      } else {
+        // For incorrect answers: show feedback with rating information
+        const ratingNames = { 1: "Again", 2: "Hard", 3: "Good", 4: "Easy" };
+        setFeedback({
+          show: true,
+          correct: false,
+          correctAnswer: answerCheck.correctAnswer,
+          userAnswer: answerCheck.userAnswer,
+          rating: ratingNames[rating as keyof typeof ratingNames],
+          responseTime: Math.round(responseTime),
+        });
 
-      // Set correction mode if answer is incorrect
-      if (!isCorrect) {
+        // Play audio feedback for katakana cards
+        if (isCardOfDeck<KatakanaContent>(currentCard, DeckType.KATAKANA)) {
+          playKatakanaAudio(currentCard.content.character);
+        }
+
+        // Set correction mode
         setNeedsCorrection(true);
         // Focus correction input after a brief delay to ensure it's rendered
         setTimeout(() => {
@@ -428,7 +440,7 @@ export default function Home() {
   };
 
   const handleCorrectionSubmit = () => {
-    if (!currentCard || !needsCorrection) return;
+    if (!currentCard || !needsCorrection || !settings) return;
 
     // Get deck-specific logic for checking the correction
     const deck = deckRegistry.getDeckForCard(currentCard);
@@ -445,7 +457,13 @@ export default function Home() {
       }
       setNeedsCorrection(false);
       setCorrectionAnswer("");
-      // Allow proceeding to next card
+
+      // Immediately advance to next card
+      const filteredCards = deckRegistry.filterCardsByDecks(
+        cards,
+        settings.enabledDecks,
+      );
+      selectNextCard(filteredCards);
     }
   };
 
