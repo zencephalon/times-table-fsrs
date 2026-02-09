@@ -6,6 +6,7 @@ import type { Card as FSRSCard } from "ts-fsrs";
 export enum DeckType {
   MULTIPLICATION = "multiplication",
   KATAKANA = "katakana",
+  SUBTRACTION = "subtraction",
 }
 
 /**
