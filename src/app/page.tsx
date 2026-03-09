@@ -5,6 +5,8 @@ import { FSRS, Rating } from "ts-fsrs";
 import ActionButtons from "@/components/ActionButtons";
 import AnswerInput from "@/components/AnswerInput";
 import CardStatsDisplay from "@/components/CardStatsDisplay";
+import DeckCompleteScreen from "@/components/DeckCompleteScreen";
+import DeckPreparationScreen from "@/components/DeckPreparationScreen";
 import DeckSelector from "@/components/DeckSelector";
 import ErrorDisplay from "@/components/ErrorDisplay";
 import FeedbackDisplay from "@/components/FeedbackDisplay";
@@ -67,6 +69,17 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [deckSelectionComplete, setDeckSelectionComplete] = useState(false);
+
+  // Sequential deck play state
+  const [deckQueue, setDeckQueue] = useState<DeckType[]>([]);
+  const [currentDeckIndex, setCurrentDeckIndex] = useState(0);
+  const [deckCardsReviewed, setDeckCardsReviewed] = useState(0);
+  const [showDeckPrep, setShowDeckPrep] = useState(false);
+  const [showDeckComplete, setShowDeckComplete] = useState(false);
+  const [deckCompleteReason, setDeckCompleteReason] = useState<
+    "no-due" | "limit-reached"
+  >("no-due");
+  const DECK_CARD_LIMIT = 50;
 
   const inputRef = useRef<HTMLInputElement>(null);
   const correctionInputRef = useRef<HTMLInputElement>(null);
@@ -201,14 +214,75 @@ export default function Home() {
     return deckRegistry.filterCardsByDecks(cards, settings.enabledDecks);
   }, [cards, settings]);
 
+  const getCurrentDeckCards = useCallback(
+    (cardList: Card<unknown>[] = cards) => {
+      if (deckQueue.length === 0) return [];
+      const currentDeckId = deckQueue[currentDeckIndex];
+      return cardList.filter((card) => card.deckId === currentDeckId);
+    },
+    [cards, deckQueue, currentDeckIndex],
+  );
+
   const startSession = useCallback(() => {
     setSessionStarted(true);
-    // Filter cards by enabled decks
-    if (settings && cards.length > 0) {
-      const filteredCards = getFilteredCards();
-      selectNextCard(filteredCards);
+    if (settings && settings.enabledDecks.length > 0) {
+      setDeckQueue(settings.enabledDecks);
+      setCurrentDeckIndex(0);
+      setDeckCardsReviewed(0);
+      setShowDeckPrep(true);
+      setShowDeckComplete(false);
     }
-  }, [cards, settings, selectNextCard, getFilteredCards]);
+  }, [settings]);
+
+  const startCurrentDeck = useCallback(() => {
+    setShowDeckPrep(false);
+    setDeckCardsReviewed(0);
+    const deckCards = getCurrentDeckCards();
+    if (deckCards.length > 0) {
+      selectNextCard(deckCards);
+    }
+  }, [getCurrentDeckCards, selectNextCard]);
+
+  const advanceToNextDeck = useCallback(() => {
+    const nextIndex = currentDeckIndex + 1;
+    if (nextIndex < deckQueue.length) {
+      setCurrentDeckIndex(nextIndex);
+      setShowDeckComplete(false);
+      setShowDeckPrep(true);
+      setDeckCardsReviewed(0);
+      setCurrentCard(null);
+    } else {
+      // All decks done - go back to deck selection
+      setShowDeckComplete(false);
+      setSessionStarted(false);
+      setDeckSelectionComplete(false);
+      setCurrentCard(null);
+    }
+  }, [currentDeckIndex, deckQueue.length]);
+
+  const checkDeckDone = useCallback(
+    (updatedCards: Card<unknown>[], reviewedCount: number) => {
+      if (reviewedCount >= DECK_CARD_LIMIT) {
+        setDeckCompleteReason("limit-reached");
+        setShowDeckComplete(true);
+        setCurrentCard(null);
+        return true;
+      }
+      const currentDeckId = deckQueue[currentDeckIndex];
+      const deckCards = updatedCards.filter(
+        (card) => card.deckId === currentDeckId,
+      );
+      const nextCard = getNextCard(deckCards);
+      if (!nextCard) {
+        setDeckCompleteReason("no-due");
+        setShowDeckComplete(true);
+        setCurrentCard(null);
+        return true;
+      }
+      return false;
+    },
+    [deckQueue, currentDeckIndex],
+  );
 
   useEffect(() => {
     const handleGlobalKeyPress = (e: KeyboardEvent) => {
@@ -234,9 +308,24 @@ export default function Home() {
         return;
       }
 
+      // Handle deck preparation screen
+      if (sessionStarted && showDeckPrep && e.key === "Enter") {
+        e.preventDefault();
+        startCurrentDeck();
+        return;
+      }
+
+      // Handle deck complete screen
+      if (sessionStarted && showDeckComplete && e.key === "Enter") {
+        e.preventDefault();
+        advanceToNextDeck();
+        return;
+      }
+
       if (e.key === "Enter" && feedback.show && !needsCorrection) {
         e.preventDefault();
-        selectNextCard(getFilteredCards());
+        const deckCards = getCurrentDeckCards();
+        selectNextCard(deckCards);
       }
 
       // Keyboard shortcuts
@@ -270,15 +359,19 @@ export default function Home() {
   }, [
     feedback.show,
     selectNextCard,
-    getFilteredCards,
+    getCurrentDeckCards,
     showProgressDashboard,
     showStatistics,
     showSettings,
     sessionStarted,
     startSession,
+    startCurrentDeck,
+    advanceToNextDeck,
     needsCorrection,
     deckSelectionComplete,
     handleDeckSelectionComplete,
+    showDeckPrep,
+    showDeckComplete,
     settings,
   ]);
 
@@ -381,12 +474,18 @@ export default function Home() {
           playCelebrationSound();
         }
 
-        // Immediately advance to next card without showing feedback
-        const filteredCards = deckRegistry.filterCardsByDecks(
-          updatedCards,
-          settings.enabledDecks,
-        );
-        selectNextCard(filteredCards);
+        // Increment deck review count and check if deck is done
+        const newReviewedCount = deckCardsReviewed + 1;
+        setDeckCardsReviewed(newReviewedCount);
+
+        if (!checkDeckDone(updatedCards, newReviewedCount)) {
+          // Continue with current deck
+          const currentDeckId = deckQueue[currentDeckIndex];
+          const deckCards = updatedCards.filter(
+            (card) => card.deckId === currentDeckId,
+          );
+          selectNextCard(deckCards);
+        }
       } else {
         // For incorrect answers: show feedback with rating information
         const ratingNames = { 1: "Again", 2: "Hard", 3: "Good", 4: "Easy" };
@@ -429,7 +528,8 @@ export default function Home() {
     // Don't submit answers on Enter - answers auto-submit when correct
     if (e.key === "Enter" && feedback.show && !needsCorrection) {
       e.preventDefault();
-      selectNextCard(getFilteredCards());
+      const deckCards = getCurrentDeckCards();
+      selectNextCard(deckCards);
     }
   };
 
@@ -458,12 +558,11 @@ export default function Home() {
       setNeedsCorrection(false);
       setCorrectionAnswer("");
 
-      // Immediately advance to next card
-      const filteredCards = deckRegistry.filterCardsByDecks(
-        cards,
-        settings.enabledDecks,
-      );
-      selectNextCard(filteredCards);
+      // Check if deck is done, otherwise advance to next card in current deck
+      if (!checkDeckDone(cards, deckCardsReviewed)) {
+        const deckCards = getCurrentDeckCards();
+        selectNextCard(deckCards);
+      }
     }
   };
 
@@ -574,6 +673,36 @@ export default function Home() {
               onStartSession={startSession}
               onChangeDeckSelection={() => setDeckSelectionComplete(false)}
             />
+          ) : showDeckPrep && deckQueue.length > 0 ? (
+            (() => {
+              const currentDeckId = deckQueue[currentDeckIndex];
+              const deck = deckRegistry.getDeck(currentDeckId);
+              const deckCards = getCurrentDeckCards();
+              return (
+                <DeckPreparationScreen
+                  deckName={deck.name}
+                  deckDescription={deck.description}
+                  deckCards={deckCards}
+                  deckIndex={currentDeckIndex}
+                  totalDecks={deckQueue.length}
+                  onStart={startCurrentDeck}
+                />
+              );
+            })()
+          ) : showDeckComplete && deckQueue.length > 0 ? (
+            (() => {
+              const currentDeckId = deckQueue[currentDeckIndex];
+              const deck = deckRegistry.getDeck(currentDeckId);
+              return (
+                <DeckCompleteScreen
+                  deckName={deck.name}
+                  cardsReviewed={deckCardsReviewed}
+                  reason={deckCompleteReason}
+                  hasNextDeck={currentDeckIndex < deckQueue.length - 1}
+                  onContinue={advanceToNextDeck}
+                />
+              );
+            })()
           ) : (
             currentCard && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 max-w-2xl mx-auto">
@@ -603,14 +732,19 @@ export default function Home() {
                         onCorrectionChange={handleCorrectionInputChange}
                         onCorrectionKeyPress={handleCorrectionKeyPress}
                         onCorrectionSubmit={handleCorrectionSubmit}
-                        onNextCard={() => selectNextCard(getFilteredCards())}
+                        onNextCard={() => {
+                          if (!checkDeckDone(cards, deckCardsReviewed)) {
+                            const deckCards = getCurrentDeckCards();
+                            selectNextCard(deckCards);
+                          }
+                        }}
                         correctionInputRef={correctionInputRef}
                       />
                     )
                   )}
 
                   <CardStatsDisplay
-                    cards={getFilteredCards()}
+                    cards={getCurrentDeckCards()}
                     currentCard={currentCard}
                     sessionData={sessionData}
                     sessionStartTime={sessionStartTime}

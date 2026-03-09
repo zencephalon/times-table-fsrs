@@ -13,7 +13,11 @@ function ColumnarQuestion({
   top,
   operator,
   bottom,
-}: { top: number; operator: string; bottom: number }) {
+}: {
+  top: number;
+  operator: string;
+  bottom: number;
+}) {
   return (
     <div className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6 font-mono">
       <div className="text-right">{top}</div>
@@ -27,8 +31,7 @@ function ColumnarQuestion({
 }
 
 function MultiplicationQuestion({ card }: CardProps) {
-  const { multiplier, multiplicand } =
-    card.content as MultiplicationContent;
+  const { multiplier, multiplicand } = card.content as MultiplicationContent;
   return (
     <ColumnarQuestion top={multiplier} operator="x" bottom={multiplicand} />
   );
@@ -47,10 +50,11 @@ function GenericQuestion({ card }: CardProps) {
   );
 }
 
-const questionDisplayMap: Partial<Record<DeckType, ComponentType<CardProps>>> = {
-  [DeckType.MULTIPLICATION]: MultiplicationQuestion,
-  [DeckType.SUBTRACTION]: SubtractionQuestion,
-};
+const questionDisplayMap: Partial<Record<DeckType, ComponentType<CardProps>>> =
+  {
+    [DeckType.MULTIPLICATION]: MultiplicationQuestion,
+    [DeckType.SUBTRACTION]: SubtractionQuestion,
+  };
 
 export default function QuestionDisplay({ card }: CardProps) {
   const Component = questionDisplayMap[card.deckId] ?? GenericQuestion;

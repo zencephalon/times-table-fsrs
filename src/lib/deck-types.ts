@@ -7,6 +7,10 @@ export enum DeckType {
   MULTIPLICATION = "multiplication",
   KATAKANA = "katakana",
   SUBTRACTION = "subtraction",
+  UNIT_WEIGHT = "unit-weight",
+  UNIT_LENGTH = "unit-length",
+  UNIT_VOLUME = "unit-volume",
+  UNIT_TEMPERATURE = "unit-temperature",
 }
 
 /**
